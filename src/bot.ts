@@ -1,17 +1,17 @@
-import { Scenes, session } from "telegraf";
-import { Telegraf } from "telegraf";
+import { Scenes, session, Telegraf } from "telegraf";
 import UserService from "./services/UserSevice";
 import MyContext from "./types/context";
+import Message from "./types/message";
+import convertToMediaGroup from "./utils/convertToMediaGroup";
 
 class BOT {
-  private bot: Telegraf<MyContext>;
+  public bot: Telegraf<MyContext>;
 
-  constructor(key?: string, scenes?: Scenes.BaseScene<MyContext>[]) {
-    if (!key) return;
+  constructor(key: string, scenes: Scenes.BaseScene<MyContext>[]) {
     this.init(key, scenes);
   }
 
-  private init(key: string, scenes: Scenes.BaseScene<MyContext>[]) {
+  private async init(key: string, scenes: Scenes.BaseScene<MyContext>[]) {
     this.bot = new Telegraf<MyContext>(key);
     const stage = new Scenes.Stage<MyContext>(scenes);
     this.bot.use(session());
@@ -20,8 +20,8 @@ class BOT {
       ctx.myContextProp = now.toString();
       return next();
     });
-    this.onStart();
     this.bot.use(stage.middleware());
+    this.onStart();
     this.bot.hears("hi", (ctx) => ctx.reply("Hey there"));
   }
 
@@ -36,12 +36,19 @@ class BOT {
   }
 
   private onStart() {
-    return this.bot.start(async (ctx) => {
+    this.bot.start(async (ctx: MyContext) => {
       const user = await UserService.getUser(ctx.chat.id);
       if (user) return;
-      ctx.reply("Welcome to the bot!");
+      await ctx.reply("Welcome to the bot!");
       return ctx.scene.enter("FILTERS_SCENE");
     });
+  }
+  public sendMessage(chatId: number, message: string) {
+    this.bot.telegram.sendMessage(chatId, message);
+  }
+  public sendMediaGroup(message: Message) {
+    const mediaGroup = convertToMediaGroup(message);
+    this.bot.telegram.sendMediaGroup(message.chatId, mediaGroup);
   }
 }
 
